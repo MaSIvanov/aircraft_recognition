@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Aircraft Detection</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background: #111827;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        .glass-card {
+            background: rgba(24, 24, 32, 0.85);
+            box-shadow: 0 4px 32px 0 rgba(0,0,0,0.5), 0 1.5px 3px 0 rgba(255,255,255,0.03);
+            border: 1px solid #23272f;
+            border-radius: 1.25rem;
+            transition: all 0.3s ease;
+        }
+        .upload-btn {
+            background: linear-gradient(90deg, #4f46e5 0%, #a21caf 100%);
+            transition: all 0.3s ease;
+        }
+        .upload-btn:hover {
+            background: linear-gradient(90deg, #a21caf 0%, #4f46e5 100%);
+            transform: translateY(-2px);
+        }
+        .bg-blur {
+            background: radial-gradient(ellipse at top left, #a21caf44 0%, transparent 70%),
+                        radial-gradient(ellipse at bottom right, #4f46e544 0%, transparent 70%);
+            z-index: 0;
+        }
+        .fade-in {
+            animation: fadeIn 0.7s cubic-bezier(.4,0,.2,1);
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.98); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .result-container {
+            max-height: 70vh;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: #4f46e5 #23272f;
+            transition: max-height 0.4s ease-out;
+        }
+        .result-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        .result-container::-webkit-scrollbar-track {
+            background: #23272f;
+            border-radius: 4px;
+        }
+        .result-container::-webkit-scrollbar-thumb {
+            background: #4f46e5;
+            border-radius: 4px;
+        }
+        #result-img {
+            transition: transform 0.3s ease;
+        }
+        #result-img:hover {
+            transform: scale(1.02);
+        }
+        .slide-down {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body class="bg-black text-white bg-blur relative">
+    <!-- Фоновая SVG-анимация -->
+    <svg class="absolute top-0 left-0 w-full h-full pointer-events-none z-0" style="opacity:0.13;">
+        <defs>
+            <radialGradient id="g1" cx="50%" cy="50%" r="80%" fx="50%" fy="50%">
+                <stop offset="0%" stop-color="#a21caf"/>
+                <stop offset="100%" stop-color="transparent"/>
+            </radialGradient>
+        </defs>
+        <ellipse cx="20%" cy="10%" rx="300" ry="180" fill="url(#g1)"/>
+        <ellipse cx="80%" cy="90%" rx="250" ry="120" fill="url(#g1)"/>
+    </svg>
+
+    <!-- Информационный блок про B-1 -->
+    <div class="relative z-10 max-w-6xl mx-auto w-full px-4 pt-8">
+        <div class="glass-card p-6 flex flex-col md:flex-row items-center gap-6 border-l-8 border-purple-600 shadow-lg w-full mb-8">
+            <img src="https://avatars.mds.yandex.net/get-entity_search/2069560/1153261603/S600xU_2x"
+                 alt="B-1 Lancer" class="rounded-lg w-32 h-24 object-cover shadow-md border border-gray-700">
+            <div class="flex-1">
+                <h2 class="text-2xl font-bold text-purple-300 mb-2 tracking-tight">Внимание! Модель определяет только B-1 Lancer</h2>
+                <p class="text-gray-200 text-base mb-1">
+                    <span class="font-semibold text-purple-400">Rockwell B-1 Lancer</span> - американский сверхзвуковой стратегический бомбардировщик с изменяемой стреловидностью крыла.
+                </p>
+                <div class="flex flex-wrap gap-4 text-xs text-gray-400 mt-2">
+                    <span><span class="text-purple-200">Максимальная скорость:</span> 1328 км/ч</span>
+                    <span><span class="text-purple-200">Дальность:</span> до 12 000 км</span>
+                    <span><span class="text-purple-200">Боевая нагрузка:</span> до 60,7 т</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Центр и правая колонка -->
+    <div class="relative z-10 max-w-6xl mx-auto w-full px-4 pb-8">
+        <div class="flex flex-col lg:flex-row items-stretch justify-between w-full gap-8">
+            <!-- Левая колонка: форма загрузки и результат -->
+            <main class="flex-1 flex flex-col items-center justify-center w-full">
+                <div id="upload-card" class="glass-card p-10 w-full max-w-5xl mx-auto flex flex-col h-full relative"
+                     style="min-height: 500px;">
+                    <div class="pl-8">
+                        <h1 class="text-4xl font-bold mb-4 text-white tracking-tight text-left">Aircraft Recognition</h1>
+                        <p class="mb-8 text-gray-400 text-left text-lg">Загрузите фото - модель определит и выделит самолёты на снимке.</p>
+                    </div>
+
+                    <!-- Форма -->
+                    <form id="upload-form" method="post" enctype="multipart/form-data" class="mb-8 flex flex-col items-center w-full slide-down visible">
+                        <input type="file" name="file" accept="image/*" required class="mb-6 w-full text-gray-300 bg-gray-900 border border-gray-700 rounded px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-600 transition text-lg cursor-pointer"/>
+                        <button type="submit" class="upload-btn w-full py-3 rounded text-xl font-semibold text-white shadow-lg transition hover:shadow-xl">Загрузить и обработать</button>
+                    </form>
+
+                    <!-- Лоадер -->
+                    <div id="loader" class="flex flex-col items-center justify-center py-12 w-full slide-down" style="display:none;">
+                        <svg class="animate-spin h-16 w-16 text-purple-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                        </svg>
+                        <span class="text-lg text-purple-300">Обработка изображения…</span>
+                    </div>
+
+                    <!-- Результат -->
+                    <div id="result-block" class="slide-down w-full" style="display:none;">
+                        <h2 class="text-2xl font-semibold mb-4 text-white text-center">Результат:</h2>
+                        <div class="result-container rounded-lg overflow-hidden border border-gray-700 bg-gray-900 shadow-lg flex justify-center mb-6">
+                            <img id="result-img" src="" alt="Result" class="w-full object-contain">
+                        </div>
+                        <button id="again-btn" type="button" class="upload-btn w-full py-3 rounded text-xl font-semibold text-white shadow-lg transition hover:shadow-xl">Загрузить другое фото</button>
+                    </div>
+
+                    <div class="flex-1"></div>
+                </div>
+            </main>
+
+            <!-- Правая колонка: карточки -->
+            <aside class="w-full lg:w-80 flex flex-col gap-6">
+                <div id="sidebar-cards">
+                    <div class="glass-card p-6 mb-6 hover:border-purple-500">
+                        <h2 class="text-xl font-bold mb-2 text-purple-400">О сервисе</h2>
+                        <p class="text-gray-300 text-sm">
+                            Aircraft Recognition - это современный сервис на базе искусственного интеллекта, который находит и выделяет самолёты на ваших фотографиях.
+                        </p>
+                    </div>
+                    <div class="glass-card p-6 hover:border-blue-500">
+                        <h2 class="text-lg font-semibold mb-2 text-blue-400">Как это работает?</h2>
+                        <ol class="list-decimal list-inside text-gray-300 text-sm space-y-1">
+                            <li>Загрузите фото с самолётом.</li>
+                            <li>Модель проанализирует снимок.</li>
+                            <li>На фото появятся красные рамки вокруг найденных самолётов.</li>
+                        </ol>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <footer class="mt-8 text-center text-gray-600 text-xs opacity-70 relative z-10 pb-4">
+        &copy; <span id="current-year">2025</span> Aircraft Recognition | by Ivanov & Galeev & Fomenko
+    </footer>
+
+    <!-- JS для UX -->
+    <script>
+        document.getElementById('current-year').textContent = new Date().getFullYear();
+
+        const form = document.getElementById('upload-form');
+        const loader = document.getElementById('loader');
+        const resultBlock = document.getElementById('result-block');
+        const resultImg = document.getElementById('result-img');
+        const againBtn = document.getElementById('again-btn');
+        const uploadCard = document.getElementById('upload-card');
+        const resultContainer = document.querySelector('.result-container');
+
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            // Плавное скрытие формы
+            form.classList.remove('visible');
+            setTimeout(() => {
+                form.style.display = 'none';
+                loader.style.display = 'flex';
+                setTimeout(() => loader.classList.add('visible'), 10);
+            }, 400);
+
+            const formData = new FormData(form);
+            try {
+                const response = await fetch("/", {
+                    method: "POST",
+                    body: formData,
+                    headers: {"X-Requested-With": "XMLHttpRequest"}
+                });
+                const data = await response.json();
+
+                // Плавное скрытие лоадера
+                loader.classList.remove('visible');
+                setTimeout(() => {
+                    loader.style.display = 'none';
+
+                    if (data.result_url) {
+                        resultImg.src = data.result_url + "?t=" + Date.now();
+                        resultImg.onload = function() {
+                            // Автоподбор размера контейнера
+                            const imgRatio = this.naturalWidth / this.naturalHeight;
+                            if (imgRatio > 1.5) {
+                                resultContainer.style.maxHeight = '60vh';
+                            } else if (imgRatio < 0.8) {
+                                resultContainer.style.maxHeight = '90vh';
+                            } else {
+                                resultContainer.style.maxHeight = '75vh';
+                            }
+
+                            // Показ результата
+                            resultBlock.style.display = 'block';
+                            setTimeout(() => resultBlock.classList.add('visible'), 10);
+                        };
+                    } else {
+                        showError(data.error || "Ошибка обработки изображения");
+                    }
+                }, 400);
+            } catch (err) {
+                showError("Ошибка соединения с сервером");
+            }
+        });
+
+        againBtn.addEventListener('click', function() {
+            resultBlock.classList.remove('visible');
+            setTimeout(() => {
+                resultBlock.style.display = 'none';
+                form.reset();
+                form.style.display = 'block';
+                setTimeout(() => form.classList.add('visible'), 10);
+            }, 400);
+        });
+
+        function showError(message) {
+            loader.classList.remove('visible');
+            setTimeout(() => {
+                loader.style.display = 'none';
+                alert(message);
+                form.style.display = 'block';
+                setTimeout(() => form.classList.add('visible'), 10);
+            }, 400);
+        }
+
+        // Автовыравнивание высоты
+        function syncHeights() {
+            const sidebar = document.getElementById('sidebar-cards');
+            if (sidebar && uploadCard && window.innerWidth >= 1024) {
+                uploadCard.style.minHeight = sidebar.offsetHeight + 'px';
+            } else {
+                uploadCard.style.minHeight = '500px';
+            }
+        }
+        window.addEventListener('load', syncHeights);
+        window.addEventListener('resize', syncHeights);
+    </script>
+</body>
+</html>
