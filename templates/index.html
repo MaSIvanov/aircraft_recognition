@@ -163,6 +163,10 @@
                             <li>На фото появятся красные рамки вокруг найденных самолётов.</li>
                         </ol>
                     </div>
+                    <!-- КНОПКА для открытия модального окна -->
+                    <button id="openGraphModalBtn" class="mt-4 w-full py-3 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold text-lg shadow-lg hover:from-blue-600 hover:to-purple-600 transition">
+                        Посмотреть график метрик модели
+                    </button>
                 </div>
             </aside>
         </div>
@@ -172,7 +176,17 @@
         &copy; <span id="current-year">2025</span> Aircraft Recognition | by Ivanov & Galeev & Fomenko
     </footer>
 
-    <!-- JS для UX -->
+    <!-- МОДАЛЬНОЕ ОКНО с графиком -->
+    <div id="graphModal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 hidden">
+        <div class="bg-gray-900 rounded-2xl shadow-2xl max-w-3xl w-full p-8 relative border-2 border-purple-700 mx-2">
+            <button id="closeGraphModalBtn" aria-label="Закрыть" class="absolute top-4 right-4 text-gray-400 hover:text-white text-3xl font-bold transition">&times;</button>
+            <h2 class="text-2xl font-bold mb-4 text-purple-300 text-center">График точности и потерь модели</h2>
+            <img src="/static/training_history.png" alt="График точности и потерь модели" class="w-full h-auto rounded-lg border border-gray-700 shadow-lg mb-2"/>
+            <div class="text-gray-400 text-sm text-center mt-2">Метрики обучения: accuracy, loss (пример)</div>
+        </div>
+    </div>
+
+    <!-- JS для UX + МОДАЛКИ -->
     <script>
         document.getElementById('current-year').textContent = new Date().getFullYear();
 
@@ -187,7 +201,6 @@
         form.addEventListener('submit', async function(e) {
             e.preventDefault();
 
-            // Плавное скрытие формы
             form.classList.remove('visible');
             setTimeout(() => {
                 form.style.display = 'none';
@@ -204,7 +217,6 @@
                 });
                 const data = await response.json();
 
-                // Плавное скрытие лоадера
                 loader.classList.remove('visible');
                 setTimeout(() => {
                     loader.style.display = 'none';
@@ -212,7 +224,6 @@
                     if (data.result_url) {
                         resultImg.src = data.result_url + "?t=" + Date.now();
                         resultImg.onload = function() {
-                            // Автоподбор размера контейнера
                             const imgRatio = this.naturalWidth / this.naturalHeight;
                             if (imgRatio > 1.5) {
                                 resultContainer.style.maxHeight = '60vh';
@@ -221,8 +232,6 @@
                             } else {
                                 resultContainer.style.maxHeight = '75vh';
                             }
-
-                            // Показ результата
                             resultBlock.style.display = 'block';
                             setTimeout(() => resultBlock.classList.add('visible'), 10);
                         };
@@ -266,6 +275,35 @@
         }
         window.addEventListener('load', syncHeights);
         window.addEventListener('resize', syncHeights);
+
+        // --- МОДАЛЬНОЕ ОКНО ГРАФИКА ---
+        const openGraphBtn = document.getElementById('openGraphModalBtn');
+        const closeGraphBtn = document.getElementById('closeGraphModalBtn');
+        const graphModal = document.getElementById('graphModal');
+
+        openGraphBtn.addEventListener('click', () => {
+            graphModal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        });
+
+        closeGraphBtn.addEventListener('click', () => {
+            graphModal.classList.add('hidden');
+            document.body.style.overflow = '';
+        });
+
+        graphModal.addEventListener('click', (e) => {
+            if (e.target === graphModal) {
+                graphModal.classList.add('hidden');
+                document.body.style.overflow = '';
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !graphModal.classList.contains('hidden')) {
+                graphModal.classList.add('hidden');
+                document.body.style.overflow = '';
+            }
+        });
     </script>
 </body>
 </html>
